@@ -2,7 +2,9 @@ name: Hello
 
 on: push
 
-job:
-  runs-on: self-hosted
-  steps:
-    - run: echo "Ello Bloke!"
+jobs:
+  hello:
+    
+    runs-on: self-hosted
+    steps:
+      - run: echo "Ello Bloke!"
