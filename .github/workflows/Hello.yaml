@@ -7,6 +7,6 @@ on:
 jobs:
   hello:
     
-    runs-on: helm-created-runner
+    runs-on: self-hosted
     steps:
       - run: echo "Howdy Liatrians!"
