@@ -1,0 +1,92 @@
+- hosts: all
+  name: Provision a set of instances
+  user: ec2-user
+  gather_facts: true
+  vars_files:
+    - vars.yaml
+
+  tasks:
+    - name: Update packages
+      become: yes
+      ansible.builtin.yum:
+        name: "*"
+        state: latest
+
+    - name: Install necessary packages for runner
+      become: yes
+      ansible.builtin.yum:
+        pkg:
+          - dotnet-sdk-6.0
+          - git
+        state: present
+
+    - name: Create folder
+      ansible.builtin.file:
+        path: /home/ec2-user/actions-runner
+        state: directory
+        mode: "755"
+
+    - name: Download runner script and extract it
+      ansible.builtin.unarchive:
+        src: https://github.com/actions/runner/releases/download/v2.309.0/actions-runner-linux-x64-2.309.0.tar.gz
+        dest: ~/actions-runner
+        remote_src: yes
+
+    - name: Check if a specific file exists
+      ansible.builtin.stat:
+        path: /home/ec2-user/actions-runner/svc.sh
+      register: specific_file_check
+      ignore_errors: yes
+
+    - name: Create the runner
+      ansible.builtin.shell:
+        cmd: ./config.sh --url https://github.com/ImmortalHedgehogs/tjvkroll --token {{ github_token }} --unattended
+        chdir: actions-runner
+      when: specific_file_check.stat.exists == false # Run the task only if the specific file doesn't exist
+
+    - name: Touch again the same file, but do not change times this makes the task idempotent
+      ansible.builtin.file:
+        path: /home/ec2-user/actions-runner/svc.sh
+        state: touch
+        mode: "0755"
+        modification_time: preserve
+        access_time: preserve
+
+    - name: Check if a specific file exists
+      ansible.builtin.stat:
+        path: /etc/systemd/system/actions.runner.ImmortalHedgehogs-tjvkroll.*
+      register: runner_service
+      ignore_errors: yes
+
+    - name: Start the runner
+      become: yes
+      ansible.builtin.shell:
+        cmd: ./svc.sh install
+        chdir: actions-runner
+      when: runner_service.stat.exists == false
+
+    - name: Reload systemd manager configuration
+      become: yes
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
+    - name: Enable service to start on boot
+      become: yes
+      ansible.builtin.systemd:
+        name: actions.runner.ImmortalHedgehogs-tjvkroll.*
+        enabled: yes
+    - name: Start the service
+      become: yes
+      ansible.builtin.systemd:
+        name: actions.runner.ImmortalHedgehogs-tjvkroll.*
+        state: started
+
+    # - name: Configure the runner
+    #   ansible.builtin.shell:
+    #     cmd: ./config.sh --unattended --url https://github.com/ImmortalHedgehogs/tjvkroll --token A2QCJIYTWB6ZC5SOQVA5DODFESMKQ
+    #     chdir: /home/ec2-user/github-runner
+
+    # - name: Start our runner
+    #   ansible.builtin.shell:
+    #     cmd: ./run.sh
+    #     chdir: /home/ec2-user/github-runner
