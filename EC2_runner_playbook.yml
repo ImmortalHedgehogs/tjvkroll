@@ -53,8 +53,9 @@
         access_time: preserve
 
     - name: Check if a specific file exists
-      ansible.builtin.stat:
-        path: /etc/systemd/system/actions.runner.ImmortalHedgehogs-tjvkroll.*
+      ansible.builtin.find:
+        paths: /etc/systemd/system
+        patterns: "actions.runner.ImmortalHedgehogs-tjvkroll*"
       register: runner_service
       ignore_errors: yes
 
@@ -63,30 +64,16 @@
       ansible.builtin.shell:
         cmd: ./svc.sh install
         chdir: actions-runner
-      when: runner_service.stat.exists == false
+      when: runner_service.matched == 0
+
+    - name: Start the runner
+      become: yes
+      ansible.builtin.shell:
+        cmd: ./svc.sh start
+        chdir: actions-runner
+      when: runner_service.matched == 0
 
     - name: Reload systemd manager configuration
       become: yes
       ansible.builtin.systemd:
         daemon_reload: yes
-
-    - name: Enable service to start on boot
-      become: yes
-      ansible.builtin.systemd:
-        name: actions.runner.ImmortalHedgehogs-tjvkroll.*
-        enabled: yes
-    - name: Start the service
-      become: yes
-      ansible.builtin.systemd:
-        name: actions.runner.ImmortalHedgehogs-tjvkroll.*
-        state: started
-
-    # - name: Configure the runner
-    #   ansible.builtin.shell:
-    #     cmd: ./config.sh --unattended --url https://github.com/ImmortalHedgehogs/tjvkroll --token A2QCJIYTWB6ZC5SOQVA5DODFESMKQ
-    #     chdir: /home/ec2-user/github-runner
-
-    # - name: Start our runner
-    #   ansible.builtin.shell:
-    #     cmd: ./run.sh
-    #     chdir: /home/ec2-user/github-runner
